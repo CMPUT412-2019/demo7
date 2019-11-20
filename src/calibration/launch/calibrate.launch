@@ -1,0 +1,9 @@
+<launch>
+    <node name="calibration"
+          pkg="camera_calibration"
+          type="cameracalibrator.py"
+          args="--size 8x6 --square 0.02588888888889 image:=/camera/rgb/image_raw camera:=/camera/rgb"
+          output="screen" />
+
+    <include file="$(find openni2_launch)/launch/openni2.launch" />
+</launch>
