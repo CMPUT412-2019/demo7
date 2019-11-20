@@ -1,8 +1,12 @@
 FROM cmput412_ros
 
+RUN apt-get install -y ros-kinetic-rtabmap-ros
+
 WORKDIR /ros/src
 RUN ln -s /source/src/calibration
 RUN ln -s /source/src/models
+RUN ln -s /source/src/navigation
+RUN ln -s /source/src/demo7
 
 WORKDIR /source
 
