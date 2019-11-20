@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<robot name="bottom_camera" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Xacro properties -->
+  <xacro:property name="cam_visual_size" value="0.05"/>
+  <xacro:property name="cam_x" value="0.15"/>
+  <xacro:property name="cam_y" value="0.0"/>
+  <xacro:property name="cam_z" value="0.15"/>
+  <xacro:property name="cam_rx" value="0.0"/>
+  <xacro:property name="cam_ry" value="0.7"/>
+  <xacro:property name="cam_rz" value="0.0"/>
+
+
+  <xacro:macro name="bottom_camera" params="parent">
+
+    <!-- Link parent (e.g. base_link) to the camera link -->
+    <joint name="bottom_cam_joint" type="fixed">
+      <axes xyz="0 1 0"/>
+      <origin xyz="${cam_x} ${cam_y} ${cam_z}" rpy="${cam_rx} ${cam_ry} ${cam_rz}"/>
+      <parent link="${parent}"/>
+      <child link="bottom_cam_link"/>
+    </joint>
+
+    <!-- Define camera collision, visual, and inertial properties -->
+    <link name="bottom_cam_link">
+      <!-- Camera looks like a red box -->
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${cam_visual_size} ${cam_visual_size} ${cam_visual_size}"/>
+        </geometry>
+        <material name="red"/>
+      </visual>
+    </link>
+
+    <!-- Use the camera plugin to put a simulated camera at the camera link -->
+    <gazebo reference="bottom_cam_link">
+      <sensor type="camera" name="bottom_camera">
+        <!-- Camera properties -->
+        <update_rate>30.0</update_rate>
+        <camera name="head">
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.02</near>
+            <far>300</far>
+          </clip>
+        </camera>
+        <!-- Camera plugin -->
+        <plugin name="camera_controller" filename="libgazebo_ros_camera.so">
+          <alwaysOn>true</alwaysOn>
+          <updateRate>0.0</updateRate>
+          <cameraName>bottom_camera</cameraName>  <!-- I think this defines topic scope -->
+          <imageTopicName>image_raw</imageTopicName>
+          <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+          <frameName>bottom_cam_link</frameName>
+          <hackBaseline>0.07</hackBaseline>
+          <distortionK1>0.0</distortionK1>
+          <distortionK2>0.0</distortionK2>
+          <distortionK3>0.0</distortionK3>
+          <distortionT1>0.0</distortionT1>
+          <distortionT2>0.0</distortionT2>
+        </plugin>
+      </sensor>
+    </gazebo>
+
+  </xacro:macro>
+</robot>
