@@ -1,0 +1,15 @@
+material course
+{
+  receive_shadows on
+  technique
+  {
+    pass
+    {
+      ambient 0.8 0.8 0.8 1.0
+      texture_unit
+      {
+        texture course_comp3.png
+      }
+    }
+  }
+}
