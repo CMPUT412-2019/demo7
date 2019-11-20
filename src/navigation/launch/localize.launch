@@ -1,6 +1,6 @@
 <launch>
     <arg name="simulation" default="false"/>
-    <include file='$(find turtlebot_bringup)/launch/minimal.launch' unless="$(arg simulation)" />
+    <include file='$(find models)/launch/turtlebot.launch' unless="$(arg simulation)" />
     <include file="$(find models)/launch/turtlebot_world.launch" if="$(arg simulation)"/>
 
     <include file='$(find navigation)/launch/rtabmap_demo_turtlebot_mapping.launch'>
