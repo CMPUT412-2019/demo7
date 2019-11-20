@@ -60,6 +60,8 @@ I changed this file in the following ways:
   <include unless="$(arg simulation)" file="$(find turtlebot_bringup)/launch/3dsensor.launch">
      <arg     if="$(arg sw_registered)" name="depth_registration" value="false"/>
      <arg unless="$(arg sw_registered)" name="depth_registration" value="true"/>
+     <!-- Disable fake laser since we do this manually -->
+     <arg name="scan_processing" value="false" />
   </include>
   <include file="$(find navigation)/launch/move_base.launch">
     <arg name="points_topic" value="$(arg points_topic)" />
