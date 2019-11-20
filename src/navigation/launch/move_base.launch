@@ -1,0 +1,30 @@
+<!--
+    Based on the turtlebot_navigation launch files
+-->
+
+<launch>
+    <arg name="odom_topic" value="odom" />
+    <arg name="points_topic" default="/camera/depth_registered/points" />
+
+    <include file="$(find turtlebot_navigation)/launch/includes/velocity_smoother.launch.xml"/>
+
+    <node name="move_base" pkg="move_base" type="move_base">
+        <rosparam file="$(find navigation)/param/costmap_common.yaml" command="load" ns="global_costmap" />
+        <rosparam file="$(find navigation)/param/costmap_common.yaml" command="load" ns="local_costmap" />
+        <rosparam file="$(find navigation)/param/costmap_global.yaml" command="load" ns="global_costmap" />
+        <rosparam file="$(find navigation)/param/costmap_local.yaml" command="load" ns="local_costmap" />
+
+        <rosparam file="$(find turtlebot_navigation)/param/dwa_local_planner_params.yaml" command="load" />
+        <rosparam file="$(find turtlebot_navigation)/param/move_base_params.yaml" command="load" />
+        <rosparam file="$(find turtlebot_navigation)/param/global_planner_params.yaml" command="load" />
+        <rosparam file="$(find turtlebot_navigation)/param/navfn_global_planner_params.yaml" command="load" />
+
+        <rosparam file="$(find navigation)/param/overrides.yaml" command="load" />
+
+        <remap from="odom" to="$(arg odom_topic)" />
+        <!-- Remap the camera topic coming into this node. The costmap param files expect camera points to be coming
+            from a topic called "points_topic" -->
+        <remap from="points_topic" to="$(arg points_topic)" />
+        <remap from="cmd_vel" to="navigation_velocity_smoother/raw_cmd_vel"/>
+    </node>
+</launch>

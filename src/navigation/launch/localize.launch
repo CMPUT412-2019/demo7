@@ -1,0 +1,16 @@
+<launch>
+    <arg name="simulation" default="false"/>
+    <include file='$(find turtlebot_bringup)/launch/minimal.launch' unless="$(arg simulation)" />
+    <include file="$(find models)/launch/turtlebot_world.launch" if="$(arg simulation)"/>
+
+    <include file='$(find navigation)/launch/rtabmap_demo_turtlebot_mapping.launch'>
+        <arg name='localization' value='true' />
+        <arg name="simulation" value="$(arg simulation)"/>
+        <arg name='database_path' value='$(find navigation)/rtabmap/realworld/rtabmap.db' unless="$(arg simulation)" />
+        <arg name='database_path' value='$(find navigation)/rtabmap/simulation/rtabmap.db' if="$(arg simulation)" />
+    </include>
+
+    <node pkg='rviz' name='rviz' type='rviz' args="-d $(find navigation)/rviz/config.rviz"/>
+
+    <include file='$(find turtlebot_teleop)/launch/logitech.launch' />
+</launch>
