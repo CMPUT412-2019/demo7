@@ -19,7 +19,9 @@ class PublisherValue:
 
     def _spin(self):
         while not rospy.is_shutdown():
-            self._publisher.publish(self.value_fn())
+            value = self.value_fn()
+            if value is not None:
+                self._publisher.publish(value)
             self.rate.sleep()
 
 
