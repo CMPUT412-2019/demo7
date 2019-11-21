@@ -1,7 +1,7 @@
 import rospy
 import ros_numpy as rnp
 import numpy as np
-from tf.transformations import quaternion_multiply, quaternion_conjugate
+from tf.transformations import quaternion_multiply, quaternion_conjugate, unit_vector
 from ar_track_alvar_msgs.msg import AlvarMarkers
 from geometry_msgs.msg import PoseStamped, Point
 from typing import Tuple
@@ -33,7 +33,7 @@ def pose_with_offset(pose, offset):  # type: (PoseStamped, Tuple[float, float, f
 class ARTag(object):
     def __init__(self, number, alvar_topic='/ar_pose_marker', visual_topic=None, frame='map'):  # type: (int, str, str) -> None
         self.number = number
-        self.pose = None
+        self.pose = None  # type: PoseStamped
         self.frame = frame
         self.subscriber = rospy.Subscriber(alvar_topic, AlvarMarkers, self._ar_alvar_callback)
         if visual_topic is not None:
@@ -52,6 +52,11 @@ class ARTag(object):
     def get_pose_with_offset(self, offset):  # type: (Tuple[float, float, float]) -> PoseStamped
         return pose_with_offset(self.pose, offset)
 
+    @property
+    def surface_normal(self):
+        return unit_vector(rnp.numpify(self.get_pose_with_offset((0., 0., 1.)).pose.position) -
+                           rnp.numpify(self.pose.pose.position))
+
     def _offset(self): # type: ()-> Tuple[float, float, float]
         return (0., 0., 0.)
 
@@ -60,7 +65,7 @@ class ARCube(object):
     def __init__(self, number, cube_side_length=0.32, alvar_topic='/ar_pose_marker', visual_topic=None, frame='map'):
         self.number = number
         self.cube_side_length = cube_side_length
-        self.pose = None
+        self.pose = None  # type: PoseStamped
         self.frame = frame
         self.subscriber = rospy.Subscriber(alvar_topic, AlvarMarkers, self._ar_alvar_callback)
         if visual_topic is not None:
@@ -78,7 +83,7 @@ class ARCube(object):
         pose = PoseStamped()
         pose.header.frame_id = self.frame
         pose.pose.position = rnp.msgify(Point, center_point)
-        pose.pose.orientation.w = 1
+        pose.pose.orientation = poses[0].pose.orientation
         self._set_pose(pose)
 
     def _set_pose(self, pose):  # type: (PoseStamped) -> None

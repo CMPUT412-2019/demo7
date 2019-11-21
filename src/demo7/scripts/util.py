@@ -7,6 +7,12 @@ import numpy as np
 import time
 from os import path
 from threading import Thread
+from tf.transformations import quaternion_conjugate, quaternion_multiply
+
+def qv_mult(q1, v1):
+    # https: // answers.ros.org / question / 196149 / how - to - rotate - vector - by - quaternion - in -python /
+    q2 = list(v1) + [0.0]
+    return quaternion_multiply(quaternion_multiply(q1, q2), quaternion_conjugate(q1))[:3]
 
 
 class PublisherValue:
