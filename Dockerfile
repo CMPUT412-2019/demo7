@@ -1,6 +1,6 @@
 FROM cmput412_ros
 
-RUN apt-get install -y ros-kinetic-rtabmap-ros
+RUN apt-get install -y ros-kinetic-rtabmap-ros ros-kinetic-ar-track-alvar ros-kinetic-ros-numpy
 
 WORKDIR /ros/src
 RUN ln -s /source/src/calibration
