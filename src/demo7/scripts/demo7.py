@@ -397,10 +397,10 @@ class StraightenCubeState(State):
         rate = rospy.Rate(10)
 
         print('Straighten: moving to start')
-        target_pose = pose_with_offset(self.cube.pose, (0, 0, 0.5))
+        target_pose = pose_with_offset(self.cube.pose, (0, 0, -0.5))
         angle_to_cube = np.arctan2(self.cube.pose.pose.position.y - target_pose.pose.position.y,
                                    self.cube.pose.pose.position.x - target_pose.pose.position.x)
-        target_pose.pose.orientation = msgify(Quaternion, transformations.quaternion_about_axis(angle_to_cube, [0, 0, 1]))
+        target_pose.pose.orientation = msgify(Quaternion, transformations.quaternion_about_axis(angle_to_cube, [0, 0, -1]))
 
         if not self._move_to(target_pose):
             return 'err'
