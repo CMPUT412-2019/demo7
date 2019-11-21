@@ -115,3 +115,9 @@ def notify_unmarked():
 
 def notify_number(n):  # type:  (int) -> None
     playsound.playsound(path.join(path.dirname(__file__), '../../../sound/number_{}.mp3'.format(int(n))), block=True)
+
+def angle_diff(a, b):
+    diff = a - b
+    if diff < -np.pi: diff += 2 * np.pi
+    if diff > np.pi: diff -= 2 * np.pi
+    return diff

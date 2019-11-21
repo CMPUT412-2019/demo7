@@ -1,0 +1,14 @@
+<launch>
+    <include file="$(find navigation)/launch/localize.launch">
+        <arg name="rviz" value="false" />
+    </include>
+
+    <include file="$(find ar_track_alvar)/launch/pr2_indiv.launch" ns="alvar_main">
+        <arg name="marker_size" value="20.4" />
+        <arg name="cam_image_topic" value="/camera/depth_registered/points" />
+        <arg name="cam_info_topic" value="/camera/depth_registered/camera_info" />
+        <arg name="output_frame" value="map" />
+    </include>
+
+    <node pkg="rviz" name="rviz" type="rviz" args="-d $(find demo7)/rviz/demo7.rviz" />
+</launch>

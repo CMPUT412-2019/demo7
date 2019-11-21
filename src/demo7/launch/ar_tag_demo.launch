@@ -1,15 +1,35 @@
 <launch>
+    <include file="$(find models)/launch/turtlebot.launch" />
+
     <include file="$(find turtlebot_bringup)/launch/3dsensor.launch">
         <arg name="publish_tf" value="false" />
+        <arg name="scan_processing" value="false" />
     </include>
-    <include file="$(find turtlebot_bringup)/launch/minimal.launch" />
 
-    <include file="$(find ar_track_alvar)/launch/pr2_indiv.launch">
+    <include file="$(find ar_track_alvar)/launch/pr2_indiv.launch" ns="alvar_main">
         <arg name="marker_size" value="20.4" />
         <arg name="cam_image_topic" value="/camera/depth_registered/points" />
         <arg name="cam_info_topic" value="/camera/depth_registered/camera_info" />
         <arg name="output_frame" value="odom" />
     </include>
+
+    <!--
+
+    <node pkg="usb_cam" type="usb_cam_node" name="usb_cam_node">
+        <param name="video_device" value="/dev/video2"/>
+        <param name="pixel_format" value="yuyv" />
+        <param name="camera_info_url" value="file://$(find calibration)/param/head_camera.yaml" />
+        <param name="camera_frame_id" value="top_cam_link" />
+    </node>
+
+    <include file="$(find ar_track_alvar)/launch/pr2_indiv_no_kinect.launch" ns="alvar_top">
+        <arg name="marker_size" value="20.4" />
+        <arg name="cam_image_topic" value="/usb_cam_node/image_raw"/>
+        <arg name="cam_info_topic" value="/usb_cam_node/camera_info" />
+        <arg name="output_frame" value="odom" />
+    </include>
+
+    -->
 
     <node pkg="rviz" name="rviz" type="rviz" args="-d $(find demo7)/rviz/ar_tag_demo.rviz" />
 </launch>

@@ -1,9 +1,17 @@
 <launch>
-    <node name="calibration"
-          pkg="camera_calibration"
-          type="cameracalibrator.py"
-          args="--size 8x6 --square 0.02588888888889 image:=/camera/rgb/image_raw camera:=/camera/rgb"
-          output="screen" />
+    <node pkg="usb_cam" type="usb_cam_node" name="usb_cam_node">
+        <param name="video_device" value="/dev/video2"/>
+        <param name="pixel_format" value="yuyv" />
+    </node>
 
-    <include file="$(find openni2_launch)/launch/openni2.launch" />
+
+    <node pkg='camera_calibration' type='cameracalibrator.py' name='camera_calibrator'>
+        <param name='size' value='8x6' />
+        <param name='square' value='0.02588888' />
+        <param name='no-service-check' value='true' />
+        <remap from='image' to='/usb_cam_node/image_raw' />
+        <remap from='camera' to='/usb_cam_node' />
+    </node>
+
+
 </launch>
