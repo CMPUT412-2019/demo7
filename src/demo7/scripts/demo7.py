@@ -41,6 +41,7 @@ class FinishedListener:
         return 'finished',
 
 
+
 class BumperListener:
     def __init__(self):
         self.bumper_listener = rospy.Subscriber('/mobile_base/events/bumper', BumperEvent, self.bumper_callback)
@@ -171,14 +172,14 @@ class TimerListener:
 
 
 class FindMarkerListener:
-    def __init__(self, marker_tracker):  # type: (MarkerTracker) -> None
-        self.marker_tracker = marker_tracker
+    def __init__(self, marker):
+        self.marker = marker
 
     def init(self):
         pass
 
     def __call__(self):
-        if self.marker_tracker.get_visible_markers():
+        if rospy.get_time() - self.marker.last_seen_time < 0.5:
             return 'found'
 
     @property
@@ -278,17 +279,20 @@ class NavigateToGoalState(State):
 
 
 class PushToGoalState(State):
-    def __init__(self, target, v):  # type: (Callable[[], PoseStamped], float) -> None
+    def __init__(self, cube, target, v):  # type: (ARCube, Callable[[], PoseStamped], float) -> None
         super(PushToGoalState, self).__init__(outcomes=['ok'], input_keys=['target_pose'])
         self.v = v
+        self.cube = cube
         self.target = target
         self.twist_pub = rospy.Publisher('/cmd_vel_mux/input/teleop', Twist, queue_size=10)
+        self.target_pub = rospy.Publisher('/viz/push_target', PoseStamped, queue_size=1)
         self.odometry = SubscriberValue('/odom', Odometry)
         self.tf_listener = TransformListener()
 
     def execute(self, ud):
         while True:
             target_pose = self.target()
+            self.target_pub.publish(target_pose)
 
             try:
                 this_pose = PoseStamped()
@@ -298,12 +302,13 @@ class PushToGoalState(State):
             except (tf.LookupException, tf.ExtrapolationException, tf.ConnectivityException), e:
                 continue
 
-            cube_offset = 0.17 + 0.32  # TODO: remove magic numbers
+            cube_offset = 0.18 + self.cube.cube_side_length/2  # TODO: remove magic numbers
             this_position = numpify(this_pose.pose.position)[0:2]
             cube_position = this_position + qv_mult(numpify(this_pose.pose.orientation), [1, 0, 0])[0:2] * cube_offset
             target_position = numpify(target_pose.pose.position)[0:2]
             print(target_position - this_position, target_position - cube_position)
             if (np.dot(target_position - this_position, target_position - cube_position)) <= 0:
+                self.twist_pub.publish(Twist())
                 return 'ok'
 
             target_angle = np.arctan2(target_pose.pose.position.y - this_pose.pose.position.y, target_pose.pose.position.x - this_pose.pose.position.x)
@@ -311,7 +316,7 @@ class PushToGoalState(State):
 
             t = Twist()
             t.linear.x = self.v
-            t.angular.z = - angle_diff(this_angle, target_angle)
+            t.angular.z = -1.5 * angle_diff(this_angle, target_angle)
             self.twist_pub.publish(t)
 
 
@@ -396,11 +401,19 @@ class StraightenCubeState(State):
     def execute(self, ud):
         rate = rospy.Rate(10)
 
+        # right = np.cross([0., 0., 1.], -self.tag.surface_normal)
+        # this_pose = PoseStamped()
+        # this_pose.header.frame_id = 'odom'
+        # this_pose.pose = self.odometry.value.pose.pose
+        # this_pose = self.tf_listener.transformPose('map', this_pose)
+        # r_ct = numpify(self.cube.pose.pose.position) - numpify(this_pose.pose.position)
+        cube_is_right_of_robot = False  # np.dot(right[:2], r_ct[:2]) >= 0
+
         print('Straighten: moving to start')
         target_pose = pose_with_offset(self.cube.pose, (0, 0, -0.5))
         angle_to_cube = np.arctan2(self.cube.pose.pose.position.y - target_pose.pose.position.y,
                                    self.cube.pose.pose.position.x - target_pose.pose.position.x)
-        target_pose.pose.orientation = msgify(Quaternion, transformations.quaternion_about_axis(angle_to_cube, [0, 0, -1]))
+        target_pose.pose.orientation = msgify(Quaternion, transformations.quaternion_about_axis(angle_to_cube, [0, 0, 1]))
 
         if not self._move_to(target_pose):
             return 'err'
@@ -418,7 +431,7 @@ class StraightenCubeState(State):
         while not self._is_cube_straight():
             t = Twist()
             t.linear.x = self.v
-            t.angular.z = self.w
+            t.angular.z = self.w if not cube_is_right_of_robot else -self.w
             self.twist_pub.publish(t)
             rate.sleep()
 
@@ -447,36 +460,66 @@ class StraightenCubeState(State):
         tag_angle = np.arctan2(normal[1], normal[0])
         diff = angle_diff(this_angle, tag_angle)
 
-        return abs(diff % (np.pi/2)) < 0.1 or abs(diff % (np.pi/2)) > np.pi/2 - 0.1
+        return abs(diff % (np.pi/2)) < 0.03 or abs(diff % (np.pi/2)) > np.pi/2 - 0.03
+
+
+class MoveToTagState(State):
+    def __init__(self, tag):  # type: (ARTag) -> None
+        super(MoveToTagState, self).__init__(outcomes=['ok', 'err'])
+        self.tag = tag
+        self.client = SimpleActionClient('move_base', MoveBaseAction)
+
+    def execute(self, ud):
+        target_pose = pose_with_offset(self.tag.pose, (0, 0, 1))
+        target_pose.pose.orientation = msgify(Quaternion, normal_to_quaternion(-self.tag.surface_normal))
+
+        if not self._move_to(target_pose):
+            return 'err'
+        self.tag.freeze()
+        return 'ok'
+
+    def _move_to(self, pose):  # type: (PoseStamped) -> bool
+        self.client.wait_for_server()
+        goal = MoveBaseGoal()
+        goal.target_pose.header.frame_id = pose.header.frame_id
+        goal.target_pose.pose.position = pose.pose.position
+        goal.target_pose.pose.orientation = pose.pose.orientation
+        self.client.send_goal(goal)
+        return self.client.wait_for_result()
+
+
+def push_to(cube, target, v):
+    sm = StateMachine(outcomes=['ok', 'err'])
+    with sm:
+        StateMachine.add('back_up_y', ActionUntil(MoveForwardAction(-v), FindMarkerListener(cube)), transitions={'found': 'choose_start_y'})
+        StateMachine.add('choose_start_y', ChooseNewNavGoalState(target, cube, 0.5), transitions={'ok': 'goto_start_y'})
+        StateMachine.add('goto_start_y', NavigateToGoalState(), transitions={'ok': 'push_box_y'})
+        StateMachine.add('push_box_y', PushToGoalState(cube, target, v=v))
+
+    return sm
 
 
 def main():
     v = 0.2
     w = 1
 
-    turn_time = 1.2
-    move_time = 1.5
-    wall_offset = 0.3
+    wall_offset_1 = 0.5
+    wall_offset_2 = 0.3
 
     cube = ARCube(2, alvar_topic='/alvar_main/ar_pose_marker', visual_topic='/viz/cube')
-    marker = ARTag(4, alvar_topic='/alvar_main/ar_pose_marker', visual_topic='/viz/marker')
+    marker = ARTag(20, alvar_topic='/alvar_main/ar_pose_marker', visual_topic='/viz/marker')
 
-    sm = StateMachine(outcomes=['ok', 'err', 'finished'])
+    sm = StateMachine(outcomes=['ok', 'err'])
     with sm:
-        StateMachine.add('find_cube_and_marker', FindTags([cube, marker]), transitions={'ok': 'straighten'})
-        StateMachine.add('straighten', StraightenCubeState(cube, marker, v, 0.2), transitions={'ok': 'back_up_y'})
+        StateMachine.add('find_cube_and_marker', FindTags([cube, marker]), transitions={'ok': 'move_to_tag'})
+        StateMachine.add('move_to_tag', MoveToTagState(marker), transitions={'ok': 'straighten'})
+        StateMachine.add('straighten', StraightenCubeState(cube, marker, v, 0.2), transitions={'ok': 'move_y_1'})
 
-        StateMachine.add('back_up_y', ActionUntil(MoveForwardAction(-v), TimerListener(5)), transitions={'timeout': 'choose_start_y'})
-        StateMachine.add('choose_start_y', ChooseNewNavGoalState(half_way_target(marker, cube), cube, 0.5),
-                         transitions={'ok': 'goto_start_y'})
-        StateMachine.add('goto_start_y', NavigateToGoalState(), transitions={'ok': 'push_box_y', 'err': None})
-        StateMachine.add('push_box_y', PushToGoalState(half_way_target(marker, cube), v=v), transitions={'ok': 'back_up_x'})
+        StateMachine.add('move_y_1', push_to(cube, half_way_target(marker, cube), v=v), transitions={'ok': 'move_x_1'})
+        StateMachine.add('move_x_1', push_to(cube,  parking_square_target(marker, wall_offset_1), v=v), transitions={'ok': 'move_y_2'})
 
-        StateMachine.add('back_up_x', ActionUntil(MoveForwardAction(-v), TimerListener(5)), transitions={'timeout': 'choose_start_x'})
-        StateMachine.add('choose_start_x', ChooseNewNavGoalState(parking_square_target(marker, wall_offset), cube, 0.5),
-                         transitions={'ok': 'goto_start_x'})
-        StateMachine.add('goto_start_x', NavigateToGoalState(), transitions={'ok': 'push_box_x', 'err': None})
-        StateMachine.add('push_box_x', PushToGoalState(parking_square_target(marker, wall_offset), v=v))
+        StateMachine.add('move_y_2', push_to(cube, half_way_target(marker, cube), v=v), transitions={'ok': 'move_x_2'})
+        StateMachine.add('move_x_2', push_to(cube, parking_square_target(marker, wall_offset_2), v=v), transitions={'ok': None})
 
     sis = IntrospectionServer('smach_server', sm, '/SM_ROOT')
     sis.start()

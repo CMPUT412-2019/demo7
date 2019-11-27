@@ -35,9 +35,14 @@ class ARTag(object):
         self.number = number
         self.pose = None  # type: PoseStamped
         self.frame = frame
+        self.frozen = False
+        self.last_seen_time = None
         self.subscriber = rospy.Subscriber(alvar_topic, AlvarMarkers, self._ar_alvar_callback)
         if visual_topic is not None:
             self.visual_publisher = PublisherValue(visual_topic, PoseStamped, 10, lambda: self.pose)
+
+    def freeze(self):
+        self.frozen = True
 
     def _ar_alvar_callback(self, msg):  # type: (AlvarMarkers) -> None
         for m in msg.markers:
@@ -45,9 +50,12 @@ class ARTag(object):
                 self._set_pose(m.pose)
 
     def _set_pose(self, pose):  # type: (PoseStamped) -> None
+        if self.frozen: return
+
         pose = pose_with_offset(pose, self._offset())
         pose.header.frame_id = self.frame
         self.pose = pose
+        self.last_seen_time = rospy.get_time()
 
     def get_pose_with_offset(self, offset):  # type: (Tuple[float, float, float]) -> PoseStamped
         return pose_with_offset(self.pose, offset)
@@ -66,6 +74,7 @@ class ARCube(object):
         self.number = number
         self.cube_side_length = cube_side_length
         self.pose = None  # type: PoseStamped
+        self.last_seen_time = None
         self.frame = frame
         self.subscriber = rospy.Subscriber(alvar_topic, AlvarMarkers, self._ar_alvar_callback)
         if visual_topic is not None:
@@ -88,6 +97,7 @@ class ARCube(object):
 
     def _set_pose(self, pose):  # type: (PoseStamped) -> None
         self.pose = pose
+        self.last_seen_time = rospy.get_time()
 
     def _offset(self): # type: ()-> Tuple[float, float, float]
         return (0, 0, -self.cube_side_length/2)
